@@ -1,123 +1,80 @@
-// Get references to elements
-const taskInput = document.getElementById('task-input');
-const addButton = document.getElementById('add-button');
-const taskList = document.getElementById('task-list');
+document.addEventListener("DOMContentLoaded", function() {
 
-const STORAGE_KEY = 'talents_hive_tasks_v1';
+const quizData = [
+  { question: "🎂 What's my date of birth?", options: ["10-12-2003", "05-05-2003", "01-01-2003", "12-10-2003"], answer: "10-12-2003" },
+  { question: "🍲 What's my favorite food?", options: ["Pounded yam & Egusi soup", "Rice & Stew", "Jollof rice", "Beans & Plantain"], answer: "Pounded yam & Egusi soup" },
+  { question: "⚽ What's my favorite sports team?", options: ["Barca", "Real Madrid", "Chelsea", "Man United"], answer: "Barca" },
+  { question: "😱 What's something I'm afraid of?", options: ["Woman", "Heights", "Snakes", "Darkness"], answer: "Woman" },
+  { question: "💰 Who is my biggest enemy?", options: ["Poverty", "Laziness", "Time", "Stress"], answer: "Poverty" },
+  { question: "⭐ What's something I'm really good at?", input: true, inputMax: 20 },
+  { question: "🎯 What do you want me to do in this new year?", input: true, inputMax: 20 },
+  { question: "🗺️ Which tribe am I?", options: ["Babur", "Hausa", "Yoruba", "Igbo"], answer: "Babur" },
+  { question: "👩‍👦 What's my mother's name?", options: ["Halima", "Aisha", "Zainab", "Fatima"], answer: "Halima" },
+  { question: "🎵 What's my favorite singer?", options: ["Drake", "Burna Boy", "Wizkid", "Davido"], answer: "Drake" },
+  { question: "💖 What's your favorite memory of us together?", input: true, inputMax: 50 },
+  { question: "😍 What did you love about me?", input: true, inputMax: 50 },
+  { question: "💌 I am single?", options: ["Yes", "No"], answer: "Yes" },
+  
+  { question: "👨‍👩‍👧‍👦 What is my position in my family?", options: ["Firstborn", "Middle Child", "Lastborn", "Only Child"], answer: "Firstborn" },
+  { question: "🎨 What is my favorite hobby?", options: ["Reading", "Cooking", "Gaming", "Travelling"], answer: "Gaming" }, 
+  { question: "💬 Describe me in three words.", input: true, inputMax: 25 },
+];
 
-// Load tasks from localStorage (if any)
-let tasks = loadTasksFromStorage();
-renderTasks();
+const totalMCQuestions = quizData.filter(q => !q.input).length;
+const optionLetters = ['A', 'B', 'C', 'D']; 
 
-// Add Task function
-function addTask() {
-  const text = taskInput.value.trim();
-  if (!text) return; // ignore empty input
+let currentQuestion = 0;
+let score = 0;
 
-  const task = {
-    id: Date.now().toString(),
-    text,
-    completed: false
-  };
+function showQuestion() {
+  if(currentQuestion >= quizData.length) {
+    document.getElementById("quiz").innerHTML = `<h2>🎉 You scored ${score} out of ${totalMCQuestions} in the multiple-choice questions!</h2>
+    <p>Thank you for your answers to the text questions ❤️</p>`;
+    return;
+  }
 
-  tasks.push(task);
-  saveTasksToStorage();
-  appendTaskToDOM(task);
-  taskInput.value = '';
-  taskInput.focus();
+  const q = quizData[currentQuestion];
+  if(q.input){
+    document.getElementById("quiz").innerHTML = `
+      <div class="question">${q.question}</div>
+      <input type="text" id="textAnswer" maxlength="${q.inputMax}" placeholder="Type your answer here">
+      <br>
+      <button id="submitBtn">Submit ✅</button>
+    `;
+    document.getElementById("submitBtn").onclick = () => {
+      currentQuestion++;
+      showQuestion();
+    };
+  } else {
+    let optionsHtml = "";
+    q.options.forEach((option, index) => {
+      // Using template literal and escaping single quotes for safety
+      const safeOption = option.replace(/'/g, "\\'"); 
+      
+      // Added A, B, C, D prefix structure
+      optionsHtml += `<button onclick="checkAnswer('${safeOption}')">
+        <span class="option-prefix">${optionLetters[index]}</span> ${option}
+      </button>`;
+    });
+    
+    document.getElementById("quiz").innerHTML = `
+      <div class="question">${q.question}</div>
+      <div class="options">${optionsHtml}</div>
+    `;
+  }
 }
 
-// Create DOM for a single task and append it
-function appendTaskToDOM(task) {
-  const li = document.createElement('li');
-  li.className = 'task-item';
-  li.dataset.id = task.id;
-
-  // Task text element (clicking toggles completed)
-  const span = document.createElement('div');
-  span.className = 'task-text';
-  span.textContent = task.text;
-
-  // Delete button
-  const delBtn = document.createElement('button');
-  delBtn.className = 'delete-button';
-  delBtn.setAttribute('aria-label', 'Delete task');
-  delBtn.textContent = '✕';
-
-  // Apply completed style if needed
-  if (task.completed) {
-    li.classList.add('completed-task');
-  }
-
-  // When clicking the text, toggle completed
-  span.addEventListener('click', () => {
-    toggleTaskCompleted(task.id, li);
-  });
-
-  // When clicking delete, remove the task
-  delBtn.addEventListener('click', (e) => {
-    // prevent the click from also toggling completed via parent handlers
-    e.stopPropagation();
-    deleteTask(task.id, li);
-  });
-
-  li.appendChild(span);
-  li.appendChild(delBtn);
-  taskList.appendChild(li);
+window.checkAnswer = function(selected) {
+  if(selected === quizData[currentQuestion].answer){
+    score++;
+  }
+  currentQuestion++;
+  showQuestion();
 }
 
-// Toggle completed state for a task
-function toggleTaskCompleted(taskId, liElement) {
-  const idx = tasks.findIndex(t => t.id === taskId);
-  if (idx === -1) return;
-  tasks[idx].completed = !tasks[idx].completed;
-  saveTasksToStorage();
-
-  liElement.classList.toggle('completed-task', tasks[idx].completed);
-}
-
-// Delete a task
-function deleteTask(taskId, liElement) {
-  tasks = tasks.filter(t => t.id !== taskId);
-  saveTasksToStorage();
-  if (liElement && liElement.parentElement) {
-    liElement.parentElement.removeChild(liElement);
-  } else {
-    renderTasks();
-  }
-}
-
-// Render all tasks (use on load or full refresh)
-function renderTasks() {
-  taskList.innerHTML = '';
-  tasks.forEach(t => appendTaskToDOM(t));
-}
-
-// Local Storage helpers
-function saveTasksToStorage() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-  } catch (e) {
-    console.error('Could not save tasks to localStorage', e);
-  }
-}
-
-function loadTasksFromStorage() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    return JSON.parse(raw);
-  } catch (e) {
-    console.error('Could not load tasks from localStorage', e);
-    return [];
-  }
-}
-
-// Event listeners
-addButton.addEventListener('click', addTask);
-
-// Allow pressing Enter in input to add task
-taskInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') addTask();
+// Start button event
+document.getElementById("startBtn").addEventListener("click", function(){
+  showQuestion();
 });
 
+});
